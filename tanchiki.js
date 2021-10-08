@@ -37,10 +37,16 @@ const grass = new Image();
 grass.src = "img/grass.png"
 const water = new Image();
 water.src = "img/water.png";
+const expl1 = new Image();
+expl1.src = "img/explosion0.png";
+const expl2 = new Image();
+expl2.src = "img/explosion1.png";
+const expl3 = new Image();
+expl3.src = "img/explosion2.png";
 var images = [
 	tankUp, tankDown, tankLeft, tankRight, 
 	tank2Up, tank2Down, tank2Left, tank2Right,
-	wall1, grass, water
+	wall1, grass, water, expl1, expl2, expl3
 ];
 var game_map=[
 	[0,0,0,0,0,2,0,0,0,0],
@@ -67,7 +73,13 @@ Promise.all(images.map(img => {
     });
 })).then(results => {
     if (results.every(res => res))
-		game_interval = setInterval(() => drawLevel(), 80);
+	{
+		setInterval(() => drawLevel(), 50);
+		setInterval(() => {		
+			move_Bullet();
+			moveP1();
+			moveP2();}, 80);
+	}
     else
         alert('Ошибка загрузки изображений');
 });
@@ -90,10 +102,7 @@ document.addEventListener('keydown', function (event){
 function drawLevel()
 {
 	context.clearRect(0, 0, canvas.width, canvas.height);
-	var bullet_map_next = bullet_map.map(function (x) {return new Array(x.length).fill(0) });
 
-	moveP1();
-	moveP2();
 	for (var i = 0; i < game_map.length; i++){
 		for (var j = 0; j < game_map.length; j++) {
 			if (game_map[i][j] === 1){
@@ -121,49 +130,7 @@ function drawLevel()
 			}
 			if (bullet_map[i][j] != 0)
 			{
-				let bul = bullet_map[i][j];
-				let ii;
-				let jj;
-				switch (game_map[i][j]){
-					case 1:	newPos(1);
-						break;
-					case 2: newPos(2);
-						break;
-					case 3: bullet_map_next[i][j] = 0;
-						break;
-					case 4: game_map[i][j] = 0;
-						break;
-					default: 
-						if ((bul === 1)&&(i > 0)) {
-							ii=i-1;
-							jj=j;
-						}
-						if ((bul === 2)&&(j < game_map.length -1)) {
-							ii=i;
-							jj=j+1;
-						}
-						if ((bul === 3)&&(i < game_map.length -1)) {
-							ii=i+1;
-							jj=j;
-						}
-						if ((bul === 4)&&(j > 0)) {
-							ii=i;
-							jj=j-1;
-						}
-						if (ii === undefined)
-							break;
-						if((bullet_map[ii][jj] === 1 && bullet_map[i][j] === 3)||
-						(bullet_map[ii][jj] === 2 && bullet_map[i][j] === 4)||
-						(bullet_map[ii][jj] === 3 && bullet_map[i][j] === 1)||
-						(bullet_map[ii][jj] === 4 && bullet_map[i][j] === 2))
-								bullet_map[ii][jj] =0;// устроить ВЗРЫВ
-							else 
-								if (bullet_map_next[ii][jj] != 0)
-									bullet_map_next[ii][jj] =0 //EXPLOSIONS	
-								else bullet_map_next[ii][jj] = bul;
-						break;
-						
-				}
+				
 				{
 					var centerX = j*block_size + block_size /2;
 					var centerY = i*block_size + block_size /2;
@@ -171,9 +138,23 @@ function drawLevel()
 					context.fillRect(centerX -5, centerY -5 , 10,10);
 				}
 			}
+			switch (game_map[i][j]){
+				case -1: 
+					drawImage(expl3, j * block_size, i * block_size);
+					game_map[i][j] = -2;
+					break;
+				case -2:
+					drawImage(expl2, j * block_size, i * block_size);
+					game_map[i][j] = -3;
+					break;
+				case -3:
+					drawImage(expl1, j * block_size, i * block_size);
+					game_map[i][j] = 0;
+					break;
+			}
+			
 		}
 	}
-	bullet_map = bullet_map_next.slice();
 }
 function logmap(map)
 {
@@ -319,7 +300,66 @@ function moveP2()
 	}
 	p2_pressed = null;
 }
+function move_Bullet()
+{
+	var bullet_map_next = bullet_map.map(function (x) {return new Array(x.length).fill(0) });
+	for (var i = 0; i < game_map.length; i++)
+		for (var j = 0; j < game_map.length; j++) 
+			if (bullet_map[i][j] != 0)
+			{
+				let bul = bullet_map[i][j];
+				let ii;
+				let jj;
+				switch (game_map[i][j]) {
+					case 1: 
+					case 2: 
+						newPos(game_map[i][j]);
+						game_map[i][j] = -1;
+						break;
+					case 3: bullet_map_next[i][j] = 0;
+						break;
+					case 4: game_map[i][j] = 0;
+						break;
+					default:
+						if ((bul === 1) && (i > 0)) {
+							ii = i - 1;
+							jj = j;
+						}
+						if ((bul === 2) && (j < game_map.length - 1)) {
+							ii = i;
+							jj = j + 1;
+						}
+						if ((bul === 3) && (i < game_map.length - 1)) {
+							ii = i + 1;
+							jj = j;
+						}
+						if ((bul === 4) && (j > 0)) {
+							ii = i;
+							jj = j - 1;
+						}
+						if (ii === undefined)
+							break;
+						if ((bullet_map[ii][jj] === 1 && bullet_map[i][j] === 3) ||
+							(bullet_map[ii][jj] === 2 && bullet_map[i][j] === 4) ||
+							(bullet_map[ii][jj] === 3 && bullet_map[i][j] === 1) ||
+							(bullet_map[ii][jj] === 4 && bullet_map[i][j] === 2))
+							{
+							bullet_map[ii][jj] = 0;
+							game_map[ii][jj] = -1;
+							}// устроить ВЗРЫВ
+						else
+							if (bullet_map_next[ii][jj] != 0)
+							{
+								bullet_map_next[ii][jj] = 0;
+								game_map[ii][jj] = -1; //EXPLOSIONS
+							}
+							else bullet_map_next[ii][jj] = bul;
+						break;
 
+				}
+			}
+	bullet_map = bullet_map_next.slice();			
+}
 function newPos(player)
 {
 	var x = Math.floor(Math.random() * game_map.length);
