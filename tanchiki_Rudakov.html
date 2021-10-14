@@ -565,7 +565,7 @@ function moveP1()
 					newY = p1y;
                 }	
 		}
-        if (game_map[newY][newX] === 0) {// смещаем, если по новым коодританам нет преград
+        if (game_map[newY][newX] === 0 && game_map[p1y][p1x]==1) {// смещаем, если по новым коодританам нет преград и если игрок внезапно не возродился в другом месте
 			game_map[p1y][p1x] = 0;
 			game_map[newY][newX] = 1;
             p1x = newX;
@@ -643,11 +643,9 @@ function moveP2()
 					newY = p2y;
                 }
 		}
-        if (game_map[newY][newX] === 0) {
+        if (game_map[newY][newX] === 0 && game_map[p2y][p2x]==2) {
 			game_map[p2y][p2x] = 0;
 			game_map[newY][newX] = 2;
-            p2x = newX;
-            p2y = newY;
         }
 		if (p2_pressed == "Space") {
 			switch (p2_rotate) {
