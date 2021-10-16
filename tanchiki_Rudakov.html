@@ -152,6 +152,7 @@
             <rect x="9" y="0" width="2" height="10"/>
         </symbol>
         <symbol id="grass" viewBox="0 0 512 512">
+            <rect x="0" y="0" width="512" height="512" fill="none" stroke="#91DC5A" stroke-width="1"/>
             <path style="fill:#47821C;" d="M8.947,309.628c2.735-5.803,9.057-9.009,15.355-7.787c32.473,6.296,66.997,22.41,102.611,47.894
                         	c27.931,19.986,56.691,45.812,85.481,76.76c0.228,0.245,0.452,0.489,0.679,0.734h-97.325c-9.586-10.639-18.719-20.377-27.1-29.061
                         	c-42.577-44.109-75.611-71.47-75.938-71.74C7.762,322.348,6.213,315.43,8.947,309.628z" />
@@ -246,6 +247,7 @@
                         	v-80.166h79.39v80.166H414.082z" />
             </symbol>
         <symbol id="water" viewBox="0 0 32 32">
+            <rect x="0" y="0" width="32" height="32" fill="none" stroke="#32b2ff" stroke-width="1"/>
             <path
                 d="M8.622,22.953c0.022,-0.234 0.205,-0.424 0.443,-0.45c0.253,-0.028 0.487,0.139 0.543,0.388c0.378,1.695 1.642,3.338 3.556,3.002c0.329,-0.058 0.654,-0.223 0.907,-0.438c0.778,-0.661 1.189,-1.617 1.446,-2.583c0.064,-0.243 0.299,-0.4 0.548,-0.368c0.237,0.031 0.417,0.225 0.434,0.461c0.39,1.678 1.649,3.289 3.545,2.955c0.33,-0.058 0.654,-0.223 0.907,-0.438c0.778,-0.66 1.19,-1.617 1.446,-2.583c0.059,-0.222 0.263,-0.376 0.493,-0.371c0.231,0.004 0.428,0.166 0.478,0.391c0.379,1.695 1.643,3.338 3.556,3.001c0.33,-0.058 0.654,-0.223 0.907,-0.438c0.778,-0.66 1.19,-1.617 1.446,-2.583c0.071,-0.266 0.345,-0.425 0.612,-0.355c0.267,0.071 0.426,0.345 0.355,0.612c-0.308,1.161 -0.83,2.295 -1.765,3.089c-0.385,0.326 -0.88,0.572 -1.381,0.66c-1.943,0.342 -3.43,-0.818 -4.218,-2.393c-0.307,0.655 -0.719,1.255 -1.282,1.733c-0.384,0.326 -0.88,0.572 -1.381,0.66c-1.948,0.343 -3.437,-0.825 -4.224,-2.407c-0.306,0.65 -0.717,1.245 -1.275,1.719c-0.384,0.327 -0.88,0.572 -1.381,0.661c-1.938,0.341 -3.421,-0.812 -4.211,-2.38c-0.307,0.66 -0.722,1.266 -1.288,1.747c-0.385,0.326 -0.88,0.572 -1.381,0.66c-2.479,0.436 -4.215,-1.572 -4.706,-3.768c-0.06,-0.27 0.11,-0.537 0.379,-0.597c0.27,-0.061 0.537,0.109 0.597,0.379c0.379,1.695 1.643,3.338 3.556,3.001c0.33,-0.058 0.654,-0.223 0.907,-0.438c0.764,-0.648 1.174,-1.581 1.432,-2.529Z"
                 style="fill:#32b2ff;" />
@@ -260,7 +262,7 @@
                 style="fill:#32b2ff;" />
             </symbol>
         <symbol id="bullet" viewBox="0 0 18 18">
-            <circle cx="9" cy="9" r="2.5" fill="#FFFFFF" fill-rule="evenodd"/>
+            <circle cx="9" cy="9" r="2" fill="#FFFFFF" fill-rule="evenodd"/>
         </symbol>
         <symbol id="expl1" viewBox="0 0 22.778 22.778">
             <g>
@@ -356,24 +358,205 @@
     </div>
     <script>
 
-const block_size = 80;
-var p1x;
-var p1y;
-var p2x;
-var p2y;
+class Tank{
+    constructor(props){
+        this.x = props.x;
+        this.y = props.y;
+        this.speed={x:0, y:0};
+        this.hp = 3;
+        this.id = props.id;
+        this.rotate = props.rotate;
+        this.source = newSvg("#tank-"+this.rotate, this.x, this.y, block_size);
+        this.source.classList.add("tank"+this.id);
+        this.keys = props.keys;
+        this.cooldown = null;
+        this.shoot_cooldown =null;
+        var tank = this;
+        document.addEventListener('keydown', function (event) {
+            if (event.keyCode == tank.keys.up || event.keyCode == tank.keys.down ||
+                event.keyCode == tank.keys.left || event.keyCode == tank.keys.right || 
+                event.keyCode == tank.keys.shoot) {
+                if (!keyPressed[event.keyCode]) // если кнопка не была зажата
+                {
+                    clearInterval(tank.cooldown); // сбрасываем перезарядку (для возможности мгновенного поворота)
+                    tank.cooldown = null;         // иначе игроку придется попадать в ритм таймера
+                }
+                keyPressed[event.keyCode] = true;
+            }
+            event.preventDefault();
+        });
+    }
+    setSpeed(props){
+        this.speed = {x: props.x * tank_speed, y: props.y * tank_speed};
+    }
+    setPosition(coord){
+        this.x = coord.x;
+        this.y = coord.y;
+        this.source.setAttribute('x', this.x);
+        this.source.setAttribute('y', this.y);
+    }
+    move(){
+        var t = this;
+        let count = 0;
+        if (keyPressed[t.keys.up])
+            count++;
+        if (keyPressed[t.keys.down])
+            count++;
+        if (keyPressed[t.keys.left])
+            count++;
+        if (keyPressed[t.keys.right])
+            count++;
+        
+        var rotate;
+        if (t.cooldown == null) {
+            if (count <= 1) {
+                this.setSpeed({ x: 0, y: 0 });
 
-var p1_rotate = "up";
-var p2_rotate = "down";
-// запоминание кнопки действия (передвижение / выстрелы)
-var p1_pressed = null;
-var p2_pressed = null;
-// перезарядка действия
-var p1_cooldown = null;
-var p2_cooldown = null;
+                if (keyPressed[t.keys.up]) {
+                    if (t.rotate != "up")
+                        rotate = "up" // повернуть танк, если он не был повёрнут
+                    else{ // иначе задаем скорость
+                            this.setSpeed({ x: 0, y: -1 });
+                        }
+                }
+
+                if (keyPressed[t.keys.left]) {
+                    if (t.rotate != "left")
+                        rotate = "left";
+                    else{
+                            this.setSpeed({ x: -1, y: 0 });;
+                        }
+
+                }
+
+                if (keyPressed[t.keys.down]) {
+                    if (t.rotate != "down")
+                        rotate = "down";
+                    else{
+                            this.setSpeed({ x: 0, y: 1 });
+                        }
+                }
+
+                if (keyPressed[t.keys.right]) {
+                    if (t.rotate != "right")
+                        rotate = "right";
+                    else{
+                            this.setSpeed({ x: 1, y: 0 });
+                        }
+                }
+                if (rotate)
+                    this.rotate = rotate;
+            }
+            if (keyPressed[t.keys.shoot] && t.shoot_cooldown == null) {
+                let x, y, speed;
+                switch (this.rotate) {
+                    case "up":
+                        x = this.x;
+                        y = this.y - block_size / 2;
+                        speed = { x: 0, y: -5 }
+                        break;
+                    case "down":
+                        x = this.x;
+                        y = this.y + block_size / 2;
+                        speed = { x: 0, y: 5 }
+                        break;
+                    case "left":
+                        x = this.x - block_size / 2;
+                        y = this.y;
+                        speed = { x: -5, y: 0 }
+                        break;
+                    case "right":
+                        x = this.x + block_size / 2;
+                        y = this.y;
+                        speed = { x: 5, y: 0 }
+                        break;
+                    default: speed = { x: 0, y: 0 };
+                }
+                let source = newSvg("#bullet", x, y, block_size);
+                bullets.push({ source: source, x: x, y: y, speed: speed });
+                document.getElementById("game-field").appendChild(source);
+                t.shoot_cooldown = setTimeout(() => {
+                    clearTimeout(t.shoot_cooldown);
+                    t.shoot_cooldown = null;
+                }, 200);
+            }
+
+            this.cooldown = setTimeout(() => {
+                clearTimeout(this.cooldown);
+                this.cooldown = null;
+            }, 30);
+
+            if (!this.checkCollision()) {
+                this.setPosition({ x: this.x + this.speed.x, y: this.y + this.speed.y });
+                this.source.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', "#tank-" + this.rotate);
+            }
+        }
+        this.checkItem();
+    }
+    checkCollision(){
+        let centerX = this.x + this.speed.x +block_size/2;
+        let centerY = this.y + this.speed.y +block_size/2;
+        let rad = 4*block_size/20; //4 - радиус svg кружка танка, 20 - размер svg поля танка; block_size/20 - масштабирование
+        let collision = false;
+        for (let tank of tanks){
+            if (collision)
+                break;
+            if (tank != this)           
+                collision = Math.pow(centerX -(tank.x +block_size/2), 2) + Math.pow(centerY -(tank.y +block_size/2), 2) <= Math.pow(rad*2, 2);// (x1 - x2)^2 + (y1 - y2)^2 <= R^2
+        }
+        for (let bar of barriers){
+            if (collision)
+                break;
+            let x1 = Math.abs(bar.x - centerX) -block_size;
+            let x2 = Math.abs(bar.x + block_size - centerX) -block_size;
+            let y1 = Math.abs(bar.y - centerY) -block_size;
+            let y2 = Math.abs(bar.y + block_size - centerY) - block_size;
+            collision = ((x1<=rad)&&(x2<=rad)&&(y1<=rad)&&(y2<=rad));
+        }
+        collision ||= ((centerY - block_size/2<0) || (centerY > map_size - block_size/2)|| (centerX -block_size/2 < 0)||(centerX > map_size - block_size/2))
+        return collision;
+    }
+    checkItem(){
+        let centerX = this.x + this.speed.x +block_size/2;
+        let centerY = this.y + this.speed.y +block_size/2;
+        let rad = 4*block_size/20;
+        for (let i=0; i<items.length;i++){
+            let it = items[i];
+            let x1 = Math.abs(it.x - centerX) -block_size;
+            let x2 = Math.abs(it.x + block_size - centerX) -block_size;
+            let y1 = Math.abs(it.y - centerY) -block_size;
+            let y2 = Math.abs(it.y + block_size - centerY) - block_size;
+            if ((x1<=rad)&&(x2<=rad)&&(y1<=rad)&&(y2<=rad)){
+                switch(it.type){
+                    case "heart": 
+                        if(this.hp<5)
+                            this.hp++;
+                        break;
+                    case "bomba":
+                        for (let tank of tanks)
+                            if (tank != this){
+                                explode(tank.x, tank.y);
+                                reviveTank(tank);
+                            }
+                        break;
+                }
+                it.source.remove();
+                items.splice(i,1);
+                i--;
+            }
+        }
+    }
+}
+const block_size = 80;
+const map_size = 800;
+const tank_speed = 5;
+var tanks = [];
+
+// запоминание нажатий кнопок клавиатуры
+var keyPressed = new Array(256);
+keyPressed.fill(false);
 const drop_cooldown = 15000; // таймер появления предметов
 const expl_frames = 4; // количество кадров на отрисовку взрыва
-var p1_hp = 3;
-var p2_hp = 3;
 
 /* начальная игровая карта 10х10
  0 - пустое пространство
@@ -394,381 +577,68 @@ var game_map=[
 	[0,3,3,0,0,0,0,0,0,0],
 	[0,4,0,0,1,0,0,0,0,0],
 ];
+var barriers = []; // контейнер для хранинения препятствий из game_map
 var explosions = []; // контейнер для отрисовки взрывов
 var items =[]; // контейнер для отрисовки предметов
+var bullets = []; // контейнер для слежки за снарядами
 
-// карта для отрисовки и анализа столкновений снарядов
-var bullet_map = game_map.map(function (x){
-	return new Array(x.length).fill(0);
-});
-
-    //запуск игры, основные функции перерисовки и анализа передвижений
-    setInterval(() => {
-        drawLevel();
+//запуск игры, основные функции перерисовки и анализа передвижений
+    createScene();
+    requestAnimationFrame(function game(){
         drawInterface();
-        moveP1();
-        moveP2();
-    }, 20);
+        moveTanks();
+        moveBullets();
+        controlExplosions();
+        requestAnimationFrame(game);
+    });
     setTimeout(() => generateItem(), drop_cooldown);
-    setInterval(() => move_Bullet(), 80);
 
-
-document.addEventListener('keydown', function (event){
-	if (event.code == "ArrowUp" || event.code == "ArrowDown" || 
-		event.code == "ArrowLeft" || event.code == "ArrowRight" ||event.code == "Enter")
-	{
-			if(p1_pressed != event.code) // если кнопка не была зажата
-			{
-				clearInterval(p1_cooldown); // сбрасываем перезарядку (для возможности мгновенного поворота)
-				p1_cooldown = null;         // иначе игроку придется попадать в ритм таймера
-			}
-			p1_pressed = event.code
-	}
-	if (event.code == "KeyW" || event.code == "KeyD" || 
-		event.code == "KeyS" || event.code == "KeyA" ||event.code == "Space")
-	{
-		if(p2_pressed != event.code)
-			{
-				clearInterval(p2_cooldown);
-				p2_cooldown = null;
-			}
-		p2_pressed = event.code;
-	}
-    event.preventDefault();
-});
 
 document.addEventListener('keyup', function (event){
-	if (event.code == p1_pressed)
-		p1_pressed = null;
-	if (event.code == p2_pressed)
-		p2_pressed = null;		
+	keyPressed[event.keyCode] = false;
+				
 });
 
-function drawLevel()
-{
-	let field = document.getElementById("game-field");
-    while (field.firstChild) { // очищаем игровое поле
-        field.removeChild(field.lastChild);
-    }
-    //далее идут различные отрисовки
-    for (let it of items)
-        switch (it.type){
-            case "heart": field.appendChild(newSvg('#heart', it.x*block_size, it.y*block_size, block_size));
-                break;
-            case "bomb": field.appendChild(newSvg('#bomba', it.x*block_size, it.y*block_size, block_size));
-                break;
-        }
-    
-    for (var i = 0; i < game_map.length; i++)
-		for (var j = 0; j < game_map.length; j++) {
-			if (game_map[i][j] === 1){
-                let tankSvg = newSvg("#tank-"+p1_rotate, j * block_size, i * block_size, block_size);
-                tankSvg.classList.add("tank1");
-				field.appendChild(tankSvg);
-				p1x = j;
-				p1y = i;
-			}
-			if (game_map[i][j] === 2) 
-			{
-				let tankSvg = newSvg("#tank-"+p2_rotate, j * block_size, i * block_size, block_size);
-                tankSvg.classList.add("tank2");
-				field.appendChild(tankSvg);
-				p2x =j;
-				p2y =i;
-			}
-			if (game_map[i][j] ===3)
-			{
-				field.appendChild(newSvg('#wall', j*block_size, i*block_size, block_size));
-			}
-			if (game_map[i][j] === 4)
-			{
-				field.appendChild(newSvg('#grass', j*block_size, i*block_size, block_size));
-			}
-			if (game_map[i][j] === 5)
-			{
-				field.appendChild(newSvg('#water', j*block_size, i*block_size, block_size));
-			}
-			if (bullet_map[i][j] != 0)
-				{
-					field.appendChild(newSvg('#bullet', j*block_size, i*block_size, block_size));
-				}
-        }	
-    // анимация взрыва - каждое состояние рисуется определённое число раз, а затем переходит в следующее
-    for (let expl of explosions) {
-        switch (expl.type) {
-            case -1:
-                field.appendChild(newSvg('#expl1', expl.x* block_size, expl.y * block_size, block_size));
-                expl.frames -= 1;
-                if (expl.frames < 0)
-                    explosions.push({type: -2, x: expl.x, y: expl.y, frames: expl_frames });
-                break;
-            case -2:
-                field.appendChild(newSvg('#expl2', expl.x* block_size, expl.y * block_size, block_size));
-                expl.frames -= 1;
-                if (expl.frames < 0)
-                    explosions.push({type: -3, x: expl.x, y: expl.y, frames: expl_frames });
-                break;
-            case -3:
-                field.appendChild(newSvg('#expl3', expl.x* block_size, expl.y * block_size, block_size));
-                expl.frames -= 1;
-                break;
-        }
-    }
-    // удаление взрывов, закончивших жизненый цикл
-    for (let i = 0; i < explosions.length; i++)
-            if (explosions[i].frames < 0) {
-                explosions.splice(i, 1);
-                i--;
-            }
-}
-
-// анализ клавиатуры игрока1
-function moveP1()
-{
-    let newX = p1x;
-    let newY = p1y;
-	if (p1_cooldown == null) {
-		if (p1_pressed == "ArrowUp") {
-			if (p1_rotate != "up")
-				p1_rotate = "up" // повернуть танк, если он не был повёрнут
-			else
-				if (p1y > 0) { // иначе проверяем на границу карты и попробуем сместить
-                    newX = p1x;
-					newY = p1y - 1;
-                }
-		}
-		if (p1_pressed == "ArrowDown") {
-			if (p1_rotate != "down")
-				p1_rotate = "down";
-			else
-				if (p1y < game_map.length - 1){
-                    newX = p1x;
-					newY = p1y + 1;
-				}
-		}
-		if (p1_pressed == "ArrowLeft") {
-			if (p1_rotate != "left")
-				p1_rotate = "left";
-			else
-				if (p1x > 0){
-                    newX = p1x - 1;
-					newY = p1y;
-                }
-					
-		}
-		if (p1_pressed == "ArrowRight") {
-			if (p1_rotate != "right")
-				p1_rotate = "right";
-			else
-				if (p1x < game_map.length - 1){
-                    newX = p1x + 1;
-					newY = p1y;
-                }	
-		}
-        if (game_map[newY][newX] === 0 && game_map[p1y][p1x]==1) {// смещаем, если по новым коодританам нет преград и если игрок внезапно не возродился в другом месте
-			game_map[p1y][p1x] = 0;
-			game_map[newY][newX] = 1;
-            p1x = newX;
-            p1y = newY;
-		}
-		if (p1_pressed == "Enter") {
-			switch (p1_rotate) {
-				case "up":
-					if (p1y > 0)
-						bullet_map[p1y - 1][p1x] = p1_rotate;
-					break;
-				case "down":
-					if (p1y < game_map.length - 1)
-						bullet_map[p1y + 1][p1x] = p1_rotate;
-					break;
-				case "left":
-					if (p1x > 0)
-						bullet_map[p1y][p1x - 1] = p1_rotate;
-					break;
-				case "right":
-					if (p1x < game_map.length - 1)
-						bullet_map[p1y][p1x + 1] = p1_rotate;
-					break;
-			}
-		}
-        // ставим на перезарядку игрока
-        p1_cooldown = setTimeout(() => {
-            clearTimeout(p1_cooldown);
-            p1_cooldown = null;
-        }, 120);
-    }
-    // проверяем, если наехали на предмет
-    checkItem();
-}
-
-function moveP2()
-{
-    let newX = p2x;
-    let newY = p2y;
-
-	if (p2_cooldown == null) {
-		if (p2_pressed == "KeyW") {
-			if (p2_rotate != "up")
-				p2_rotate = "up";
-			else
-				if (p2y > 0){
-                    newX = p2x;
-					newY = p2y - 1;
-                }
-		}
-		if (p2_pressed == "KeyS") {
-			if (p2_rotate != "down")
-				p2_rotate = "down";
-			else
-				if (p2y < game_map.length - 1){
-                    newX = p2x;
-					newY = p2y + 1;
-                }
-		}
-		if (p2_pressed == "KeyA") {
-			if (p2_rotate != "left")
-				p2_rotate = "left";
-			else
-				if (p2x > 0){
-                    newX = p2x - 1;
-					newY = p2y;
-                }
-		}
-		if (p2_pressed == "KeyD") {
-			if (p2_rotate != "right")
-				p2_rotate = "right";
-			else
-				if (p2x < game_map.length - 1){
-                    newX = p2x + 1;
-					newY = p2y;
-                }
-		}
-        if (game_map[newY][newX] === 0 && game_map[p2y][p2x]==2) {
-			game_map[p2y][p2x] = 0;
-			game_map[newY][newX] = 2;
-        }
-		if (p2_pressed == "Space") {
-			switch (p2_rotate) {
-				case "up":
-					if (p2y > 0)
-						bullet_map[p2y - 1][p2x] = p2_rotate;
-					break;
-				case "down":
-					if (p2y < game_map.length - 1)
-						bullet_map[p2y + 1][p2x] = p2_rotate;
-					break;
-				case "left":
-					if (p2x > 0)
-						bullet_map[p2y][p2x - 1] = p2_rotate;
-					break;
-				case "right":
-					if (p2x < game_map.length - 1)
-						bullet_map[p2y][p2x + 1] = p2_rotate;
-					break;
-			}
-		}
-		p2_cooldown = setTimeout(() => {
-			clearTimeout(p2_cooldown);
-			p2_cooldown = null;
-		}, 120);
-	}
-    checkItem();
-}
-
-//передвижение и анализ столкновений снарядов
-function move_Bullet()
-{
-    // создаем карту, в которую попадут снаряды, не попавшие(не попадут) в преграды
-	var bullet_map_next = bullet_map.map(function (x) {return new Array(x.length).fill(0); });
-
-	for (var i = 0; i < game_map.length; i++)
-		for (var j = 0; j < game_map.length; j++) 
-			if (bullet_map[i][j] != 0)
-			{
-				let bul = bullet_map[i][j];
-				let ii;
-				let jj;
-				switch (game_map[i][j]) {
-                    // проверяем на столкновение с преградами в данный момент
-					case 1: 
-                        p1_hp -= 1;
-                        if (p1_hp <= 0)
-                            {
-                                p1_hp = 3;
-                                newPos(1);
-                                explode(j, i);
-                            }
-                            break;
-					case 2: 
-                        p2_hp -= 1;
-                        if (p2_hp <= 0)
-                            {
-                                p2_hp = 3;
-                                newPos(2);
-                                explode(j, i);
-                            }
-						break;
-					case 3:
-						break;
-					case 4: game_map[i][j] = 0;
-						break;
-					default:
-                        // просчитываем дальнейшее предвижение
-						if ((bul == "up") && (i > 0)) {
-							ii = i - 1;
-							jj = j;
-						}
-						if ((bul == "right") && (j < game_map.length - 1)) {
-							ii = i;
-							jj = j + 1;
-						}
-						if ((bul == "down") && (i < game_map.length - 1)) {
-							ii = i + 1;
-							jj = j;
-						}
-						if ((bul == "left") && (j > 0)) {
-							ii = i;
-							jj = j - 1;
-						}
-						if (ii === undefined) //выходим, если нет новой координаты (уход за границы)
-							break;
-                        // запускаем взрыв, если один снаряд летит навстречу другому
-						if ((bullet_map[ii][jj] == "up" && bullet_map[i][j] == "down") ||
-							(bullet_map[ii][jj] == "right" && bullet_map[i][j] == "left") ||
-							(bullet_map[ii][jj] == "down" && bullet_map[i][j] == "up") ||
-							(bullet_map[ii][jj] == "left" && bullet_map[i][j] == "right"))
-							{
-							bullet_map[ii][jj] = 0;
-                            explode(jj, ii);
-							}
-						else // запускаем взрыв, если на новом месте уже есть снаряд (например, если они летят перпендикулярно)
-							if (bullet_map_next[ii][jj] != 0)
-							{
-								bullet_map_next[ii][jj] = 0;
-								explode(jj, ii);
-							}
-							else bullet_map_next[ii][jj] = bul; // в последнем случае перемещаем на новое место
-						break;
-
-				}
-			}
-	bullet_map = bullet_map_next.slice();			
+function moveTanks(){
+    for (let tank of tanks)
+        tank.move();
 }
 
 // возрождение игрока в новом месте
-function newPos(player)
-{
-	var x = Math.floor(Math.random() * game_map.length);
+function reviveTank(player){
+    var copy_map = game_map.map(function(x){ return new Array(x.length).fill(0);});
+    player.hp = 3;
+    // составляем примерную текущую карту, чтобы не воскресить игрока в объекте
+    for (let it of barriers){
+        let x = Math.floor(it.x / block_size);
+        let y = Math.floor(it.y / block_size);
+        copy_map[y][x] = 1;
+    }
+    for (let it of bullets){
+        let x = Math.floor(it.x / block_size);
+        let y = Math.floor(it.y / block_size);
+        copy_map[y][x] = 1;
+    }
+    for (let it of tanks){
+        let x = Math.floor(it.x / block_size);
+        let y = Math.floor(it.y / block_size);
+        copy_map[y][x] = 1;
+    }
+    for (let it of items){
+        let x = Math.floor(it.x / block_size);
+        let y = Math.floor(it.y / block_size);
+        copy_map[y][x] = 1;
+    }
+    var x = Math.floor(Math.random() * game_map.length);
 	var y = Math.floor(Math.random() * game_map.length);
-	while (game_map[x][y]!=0 || bullet_map[x][y]!=0)
+	while (copy_map[y][x]!=0)
 	{
 		x = Math.floor(Math.random() * game_map.length);
 		y = Math.floor(Math.random() * game_map.length);
 	}
-	if (player === 1)
-		game_map[p1y][p1x] =0;
-	else game_map[p2y][p2x] =0;
-	game_map[x][y] = player;
+    x *= block_size;
+    y *= block_size;
+    player.setPosition({x:x, y:y});
 }
 
 // рисование нижнего интерфейса
@@ -777,6 +647,8 @@ function drawInterface()
     const block_size2 = 40;
     let x=5;
     let y=5;
+    let p1 = getTankById(1);
+    let p2 = getTankById(2);
     let svgInterf = document.getElementById("game-interface");
     while (svgInterf.firstChild) {
         svgInterf.removeChild(svgInterf.lastChild);
@@ -785,7 +657,7 @@ function drawInterface()
     useSvg.classList.add("tank1");
     svgInterf.appendChild(useSvg);
     
-    for(let i=1; i<p1_hp;i++){
+    for(let i=1; i<p1.hp;i++){
         x += block_size2 +5;
         svgInterf.appendChild(newSvg('#heart', x, y, block_size2));
     }
@@ -795,65 +667,89 @@ function drawInterface()
     useSvg.classList.add("tank2");;
     svgInterf.appendChild(useSvg);
 
-    for(let i=1; i<p2_hp;i++){
+    for(let i=1; i<p2.hp;i++){
         x -= block_size2 +5;
         svgInterf.appendChild(newSvg('#heart', x, y, block_size2));
     }
 }
 function explode(x, y){
-    explosions.push({type: -1, x: x,  y: y, frames: expl_frames});
+    source = newSvg("#expl1", x, y, block_size);
+    explosions.push({type: 1, frames: expl_frames, source: source});
+    document.getElementById("game-field").appendChild(source);
 }
-
+function controlExplosions()
+{
+    for(let i=0; i<explosions.length;i++){
+        let expl = explosions[i];
+        switch (expl.type){
+            case 1: 
+                expl.frames--;
+                if (expl.frames<=0) {
+                    expl.source.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', "#expl2");
+                    expl.type = 2;
+                    expl.frames = expl_frames;
+                }
+                break;
+            case 2: 
+                expl.frames--;
+                if (expl.frames<=0) {
+                    expl.source.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', "#expl3");
+                    expl.type = 3;
+                    expl.frames = expl_frames;
+                }
+                break;
+            case 3: 
+                expl.frames--;
+                if (expl.frames<=0) {
+                    expl.source.remove();
+                    explosions.splice(i,1);
+                    i--;
+                }
+                break;
+        }
+    }
+}
 // раз в некоторое время добавляется предмет на поле
 function generateItem(){
     if (items.length < 3) {
         // заполняем копию текущей карты всеми объектами, чтобы новый предмет не появился на месте чего-то другого
-        let map_slice = game_map.map(function (x) { return x.map(function (y) { return y }) });
+        var copy_map = game_map.map(function (x) { return new Array(x.length).fill(0); });
+        // составляем примерную текущую карту, чтобы не воскресить игрока в объекте
+        for (let it of barriers) {
+            let x = Math.floor(it.x / block_size);
+            let y = Math.floor(it.y / block_size);
+            copy_map[y][x] = 1;
+        }
+        for (let it of bullets) {
+            let x = Math.floor(it.x / block_size);
+            let y = Math.floor(it.y / block_size);
+            copy_map[y][x] = 1;
+        }
+        for (let it of tanks) {
+            let x = Math.floor(it.x / block_size);
+            let y = Math.floor(it.y / block_size);
+            copy_map[y][x] = 1;
+        }
+        for (let it of items) {
+            let x = Math.floor(it.x / block_size);
+            let y = Math.floor(it.y / block_size);
+            copy_map[y][x] = 1;
+        }
         var x = Math.floor(Math.random() * game_map.length);
         var y = Math.floor(Math.random() * game_map.length);
-        for (let it of items)
-            map_slice[it.y][it.x] = 10;
-        map_slice[p1y][p1x] = 10;
-        map_slice[p2y][p2x] = 10;
-
-        while (map_slice[y][x] != 0) {
+        while (copy_map[y][x] != 0) {
             x = Math.floor(Math.random() * game_map.length);
             y = Math.floor(Math.random() * game_map.length);
         }
-        let types = ["heart", "bomb"];
-        items.push({ type: types[Math.floor(Math.random() * types.length)], x: x, y: y });
+        x *= block_size;
+        y *= block_size;
+        let types = ["heart", "bomba"];
+        let type = types[Math.floor(Math.random() * types.length)];
+        var source = newSvg("#" + type, x, y, block_size);
+        items.push({ type: type, x: x, y: y, source: source });
+        document.getElementById("game-field").appendChild(source);
     }
-    setTimeout(()=> generateItem(), drop_cooldown);
-}
-
-// анализ подбора предметов игроками
-function checkItem(){
-    for(let i=0; i<items.length;i++){
-        it = items[i];
-        if ((it.x === p1x)&&(it.y === p1y)){
-            if(it.type =="heart" && p1_hp<5)
-                p1_hp++;
-            
-            if (it.type =="bomb"){
-                explode(p2x, p2y);
-                p2_hp = 3;
-                newPos(2);
-            }
-            items.splice(i,1);
-            i--;
-        }
-        if ((it.x === p2x)&&(it.y === p2y)){
-            if(it.type =="heart" && p2_hp<5)
-                p2_hp++;
-            if (it.type =="bomb"){
-                explode(p1x, p1y);
-                p1_hp = 3;
-                newPos(1);
-            }
-            items.splice(i,1);
-            i--;
-        }
-    }
+    setTimeout(() => generateItem(), drop_cooldown);
 }
 
 // создаем <use> в который помещаем переданный svg (source - id тега <symbol> в разметке)
@@ -865,6 +761,157 @@ function newSvg(source, x, y, size){
     useSvg.setAttribute('height', size);
     useSvg.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', source);
     return useSvg;
+}
+
+function createScene(){
+    let field = document.getElementById("game-field");
+    
+    for (var i = 0; i < game_map.length; i++)
+		for (var j = 0; j < game_map.length; j++) {
+			if (game_map[i][j] === 1){
+                var t = new Tank({
+                    x: j*block_size,
+                    y: i*block_size,
+                    keys: {
+                        left: 37,
+                        up: 38,
+                        right: 39,
+                        down: 40,
+                        shoot: 13
+                    },
+                    id: 1,
+                    rotate: "up"
+                });
+                tanks.push(t);
+            }
+			if (game_map[i][j] === 2) 
+			{
+				var t = new Tank({
+                    x: j*block_size,
+                    y: i*block_size,
+                    id: 2,
+                    keys: {
+                        left: 65,
+                        up: 87,
+                        right: 68,
+                        down: 83,
+                        shoot: 32
+                    },
+                    rotate: "down"
+                });
+                tanks.push(t);
+			}
+			if (game_map[i][j] ===3)
+			{
+				field.appendChild(createBarrier("wall", j*block_size, i*block_size));
+			}
+			if (game_map[i][j] === 4)
+			{
+                field.appendChild(createBarrier("grass", j*block_size, i*block_size));
+			}
+			if (game_map[i][j] === 5)
+			{
+                field.appendChild(createBarrier("water", j*block_size, i*block_size));	
+			}
+        }
+        for (let tank of tanks)
+            field.appendChild(tank.source);
+}
+function createBarrier(bar, x, y){
+    var newUse = newSvg('#'+bar, x, y, block_size);
+    barriers.push({
+        source: newUse,
+        x: x,
+        y: y,
+        type: bar
+    });
+    return newUse;
+}
+function moveBullets(){
+    for(var i=0;i<bullets.length;i++){
+        let b1 = bullets[i];
+        let centerX = b1.x + block_size/2;
+        let centerY = b1.y + block_size/2;
+        let rad = 2*block_size/18;
+        let collision = false;
+        // проверка столкновения с другими снарядами
+        for (var j = i+1; j < bullets.length; j++) {
+            let b2 = bullets[j];
+            let centerX2 = b2.x + block_size / 2;
+            let centerY2 = b2.y + block_size / 2;
+            collision = Math.pow(centerX - centerX2, 2) + Math.pow(centerY - centerY2, 2) <= Math.pow(2 * rad, 2);
+            if (collision) {
+                b2.source.remove();
+                bullets.splice(j, 1);
+                explode(b1.x + b1.speed.x, b1.y + b1.speed.y);
+                break;
+            }
+        }
+        // проверка столкновения с препятствиями
+        if (!collision){
+            var hit;
+            var j;
+            for (j = 0; j<barriers.length;j++){
+                var bar = barriers[j];
+                let x1 = Math.abs(bar.x - centerX) -block_size;
+                let x2 = Math.abs(bar.x + block_size - centerX) -block_size;
+                let y1 = Math.abs(bar.y - centerY) -block_size;
+                let y2 = Math.abs(bar.y + block_size - centerY) - block_size;
+                collision = ((x1<=rad)&&(x2<=rad)&&(y1<=rad)&&(y2<=rad));
+                if (collision){
+                    switch (barriers[j].type) {
+                        case "wall": j=barriers.length+1;
+                            break;
+                        case "water":
+                            collision = false;
+                            break;
+                        case "grass":
+                            barriers[j].source.remove();
+                            barriers.splice(j, 1);
+                            j=barriers.length+1;
+                            break;
+                    }
+                }
+            }
+        }
+        // проверка столкновения с танками
+        if (!collision){
+            for (let tank of tanks){
+                let centerX2 = tank.x + block_size/2;
+                let centerY2 = tank.y + block_size/2;
+                let rad2 = 4*block_size/20;
+                collision = Math.pow(centerX - centerX2, 2) + Math.pow(centerY - centerY2, 2) <= Math.pow(rad + rad2, 2);
+                if (collision){
+                    tank.hp--;
+                    if (tank.hp<=0){
+                        explode(tank.x, tank.y);
+                        reviveTank(tank);
+                    }
+                    break;
+                }
+            }
+        }
+        if (!collision){
+            b1.x += b1.speed.x;
+            b1.y += b1.speed.y;
+            b1.source.setAttribute('x', b1.x);
+            b1.source.setAttribute('y', b1.y);
+            if (centerX < 0 || centerX > map_size || centerY < 0 || centerY > map_size) {
+                collision = true;
+            }
+        }
+        if (collision){
+            b1.source.remove();
+            bullets.splice(i, 1);
+            i--;
+        }
+    }
+    
+}
+function getTankById(id){
+    for (var tank of tanks)
+        if (tank.id == id)
+            return tank;
 }
     </script>
 </body>
