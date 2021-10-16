@@ -581,7 +581,7 @@ var barriers = []; // контейнер для хранинения препя�
 var explosions = []; // контейнер для отрисовки взрывов
 var items =[]; // контейнер для отрисовки предметов
 var bullets = []; // контейнер для слежки за снарядами
-
+var drop_timeout = null;
 //запуск игры, основные функции перерисовки и анализа передвижений
     createScene();
     requestAnimationFrame(function game(){
@@ -589,10 +589,10 @@ var bullets = []; // контейнер для слежки за снаряда�
         moveTanks();
         moveBullets();
         controlExplosions();
+        if (drop_timeout == null)
+            drop_timeout = setTimeout(() => generateItem(), drop_cooldown);
         requestAnimationFrame(game);
     });
-    setTimeout(() => generateItem(), drop_cooldown);
-
 
 document.addEventListener('keyup', function (event){
 	keyPressed[event.keyCode] = false;
