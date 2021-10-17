@@ -412,38 +412,26 @@ class Tank{
             if (count <= 1) {
                 this.setSpeed({ x: 0, y: 0 });
 
-                if (keyPressed[t.keys.up]) {
+                if (keyPressed[t.keys.up])
                     if (t.rotate != "up")
                         rotate = "up" // повернуть танк, если он не был повёрнут
-                    else{ // иначе задаем скорость
-                            this.setSpeed({ x: 0, y: -1 });
-                        }
-                }
+                    else this.setSpeed({ x: 0, y: -1 }); // иначе задаем скорость
 
-                if (keyPressed[t.keys.left]) {
+                if (keyPressed[t.keys.left])
                     if (t.rotate != "left")
                         rotate = "left";
-                    else{
-                            this.setSpeed({ x: -1, y: 0 });;
-                        }
+                    else this.setSpeed({ x: -1, y: 0 });;
 
-                }
-
-                if (keyPressed[t.keys.down]) {
+                if (keyPressed[t.keys.down]) 
                     if (t.rotate != "down")
                         rotate = "down";
-                    else{
-                            this.setSpeed({ x: 0, y: 1 });
-                        }
-                }
+                    else this.setSpeed({ x: 0, y: 1 });
 
-                if (keyPressed[t.keys.right]) {
+                if (keyPressed[t.keys.right])
                     if (t.rotate != "right")
                         rotate = "right";
-                    else{
-                            this.setSpeed({ x: 1, y: 0 });
-                        }
-                }
+                    else this.setSpeed({ x: 1, y: 0 });
+
                 if (rotate)
                     this.rotate = rotate;
             }
@@ -603,12 +591,9 @@ function moveTanks(){
     for (let tank of tanks)
         tank.move();
 }
-
-// возрождение игрока в новом месте
-function reviveTank(player){
+// воспроизводится примерное текущее игровое поле
+function copyMap(){
     var copy_map = game_map.map(function(x){ return new Array(x.length).fill(0);});
-    player.hp = 3;
-    // составляем примерную текущую карту, чтобы не воскресить игрока в объекте
     for (let it of barriers){
         let x = Math.floor(it.x / block_size);
         let y = Math.floor(it.y / block_size);
@@ -617,7 +602,8 @@ function reviveTank(player){
     for (let it of bullets){
         let x = Math.floor(it.x / block_size);
         let y = Math.floor(it.y / block_size);
-        copy_map[y][x] = 1;
+        if (it)
+            copy_map[y][x] = 1;
     }
     for (let it of tanks){
         let x = Math.floor(it.x / block_size);
@@ -629,16 +615,24 @@ function reviveTank(player){
         let y = Math.floor(it.y / block_size);
         copy_map[y][x] = 1;
     }
+    return copy_map;
+}
+// возрождение игрока в новом месте
+function reviveTank(player){
+    player.hp = 3;
+    //  получаем текущее игровое поле, чтобы не воскресить игрока в объекте
+    var copy_map = copyMap();
     var x = Math.floor(Math.random() * game_map.length);
 	var y = Math.floor(Math.random() * game_map.length);
-	while (copy_map[y][x]!=0)
-	{
+
+    player.setPosition({x:x*block_size, y:y*block_size});
+    var collision = player.checkCollision();
+	while ((copy_map[y][x]!=0)|| (collision)){
 		x = Math.floor(Math.random() * game_map.length);
 		y = Math.floor(Math.random() * game_map.length);
+        player.setPosition({x:x*block_size, y:y*block_size});
+        collision = player.checkCollision();
 	}
-    x *= block_size;
-    y *= block_size;
-    player.setPosition({x:x, y:y});
 }
 
 // рисование нижнего интерфейса
@@ -672,11 +666,13 @@ function drawInterface()
         svgInterf.appendChild(newSvg('#heart', x, y, block_size2));
     }
 }
+// создание нового взрыва
 function explode(x, y){
     source = newSvg("#expl1", x, y, block_size);
     explosions.push({type: 1, frames: expl_frames, source: source});
     document.getElementById("game-field").appendChild(source);
 }
+// рисование анимации взрыра
 function controlExplosions()
 {
     for(let i=0; i<explosions.length;i++){
@@ -712,29 +708,7 @@ function controlExplosions()
 // раз в некоторое время добавляется предмет на поле
 function generateItem(){
     if (items.length < 3) {
-        // заполняем копию текущей карты всеми объектами, чтобы новый предмет не появился на месте чего-то другого
-        var copy_map = game_map.map(function (x) { return new Array(x.length).fill(0); });
-        // составляем примерную текущую карту, чтобы не воскресить игрока в объекте
-        for (let it of barriers) {
-            let x = Math.floor(it.x / block_size);
-            let y = Math.floor(it.y / block_size);
-            copy_map[y][x] = 1;
-        }
-        for (let it of bullets) {
-            let x = Math.floor(it.x / block_size);
-            let y = Math.floor(it.y / block_size);
-            copy_map[y][x] = 1;
-        }
-        for (let it of tanks) {
-            let x = Math.floor(it.x / block_size);
-            let y = Math.floor(it.y / block_size);
-            copy_map[y][x] = 1;
-        }
-        for (let it of items) {
-            let x = Math.floor(it.x / block_size);
-            let y = Math.floor(it.y / block_size);
-            copy_map[y][x] = 1;
-        }
+        var copy_map = copyMap();
         var x = Math.floor(Math.random() * game_map.length);
         var y = Math.floor(Math.random() * game_map.length);
         while (copy_map[y][x] != 0) {
@@ -784,8 +758,7 @@ function createScene(){
                 });
                 tanks.push(t);
             }
-			if (game_map[i][j] === 2) 
-			{
+			if (game_map[i][j] === 2){
 				var t = new Tank({
                     x: j*block_size,
                     y: i*block_size,
@@ -802,17 +775,11 @@ function createScene(){
                 tanks.push(t);
 			}
 			if (game_map[i][j] ===3)
-			{
 				field.appendChild(createBarrier("wall", j*block_size, i*block_size));
-			}
 			if (game_map[i][j] === 4)
-			{
                 field.appendChild(createBarrier("grass", j*block_size, i*block_size));
-			}
 			if (game_map[i][j] === 5)
-			{
-                field.appendChild(createBarrier("water", j*block_size, i*block_size));	
-			}
+                field.appendChild(createBarrier("water", j*block_size, i*block_size));
         }
         for (let tank of tanks)
             field.appendChild(tank.source);
@@ -906,7 +873,6 @@ function moveBullets(){
             i--;
         }
     }
-    
 }
 function getTankById(id){
     for (var tank of tanks)
